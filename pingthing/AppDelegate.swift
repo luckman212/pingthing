@@ -1,0 +1,251 @@
+//
+//  PingThing 1.0.0
+//  AppDelegate.swift
+//
+
+import AppKit
+import SwiftyPing
+import UserNotifications
+
+@main
+class AppDelegate: NSObject, NSApplicationDelegate {
+    
+    var statusItem: NSStatusItem!
+    var currentPingTime: NSMenuItem!
+    var pingGraphView: PingResponseGraphView!
+    var prefsWindow: PreferencesWindowController?
+    var pinger: SwiftyPing?
+    let monitor = PingMenuNetworkMonitor()
+    let menu = NSMenu()
+    var target: String = ""
+
+    static func main() {
+        let app = NSApplication.shared
+        let delegate = AppDelegate()
+        app.delegate = delegate
+        app.setActivationPolicy(.accessory)
+        app.run()
+    }
+    
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        currentPingTime = NSMenuItem(title: "Initializing…", action: nil, keyEquivalent: "")
+        menu.addItem(currentPingTime)
+        menu.addItem(NSMenuItem.separator())
+        menu.addItem(NSMenuItem(title: "Settings…", action: #selector(openPreferences), keyEquivalent: ","))
+        menu.addItem(NSMenuItem.separator())
+        menu.addItem(NSMenuItem(title: "Quit", action: #selector(NSApplication.terminate), keyEquivalent: "q"))
+        
+        /*
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+            print("Delayed block")
+        }
+        Timer.scheduledTimer(withTimeInterval: 1, repeats: false) { _ in
+            print("Timer fired")
+        }
+        */
+        
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleNetworkChange(_:)),
+            name: .networkStatusChanged,
+            object: nil
+        )
+        
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(setupPinger(_:)),
+            name: .preferencesDidChange,
+            object: nil
+        )
+        
+        // request notification permissions
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
+            if let error = error {
+                print("Error requesting notification permission: \(error)")
+            } else {
+                print("Permission granted: \(granted)")
+            }
+        }
+        
+        // initialize state
+        setupPinger()
+    }
+    
+    func createStatusItem() {
+        let historySize = UserDefaults.standard.object(forKey: "HistorySize") as? Int ?? defaultHistorySize
+        let barWidth = UserDefaults.standard.object(forKey: "BarWidth") as? Int ?? defaultBarWidth
+        let absoluteWidth = Double(historySize * barWidth)
+        if statusItem != nil {
+            if statusItem.length == absoluteWidth { return } // don't recreate if width didn't change
+            NSStatusBar.system.removeStatusItem(statusItem)
+        }
+        statusItem = NSStatusBar.system.statusItem(withLength: absoluteWidth)
+
+        if let button = statusItem.button {
+            button.image = nil
+            button.title = ""
+            button.toolTip = k_AppName
+
+            let container = NSView(frame: NSRect(x: 0, y: 0, width: absoluteWidth, height: k_graphHeight))
+            container.wantsLayer = true
+            container.layer?.cornerRadius = k_graphCornerRadius
+            container.layer?.masksToBounds = false
+
+            pingGraphView = PingResponseGraphView(historySize: historySize, barWidth: barWidth)
+            pingGraphView.frame = container.bounds
+            pingGraphView.autoresizingMask = [.width, .height]
+            pingGraphView.wantsLayer = true
+            pingGraphView.layer?.cornerRadius = k_graphCornerRadius
+            pingGraphView.layer?.masksToBounds = true
+            container.addSubview(pingGraphView)
+                        
+            button.addSubview(container)
+            container.translatesAutoresizingMaskIntoConstraints = false
+            NSLayoutConstraint.activate([
+                container.leadingAnchor.constraint(equalTo: button.leadingAnchor),
+                container.trailingAnchor.constraint(equalTo: button.trailingAnchor),
+                container.topAnchor.constraint(equalTo: button.topAnchor),
+                container.bottomAnchor.constraint(equalTo: button.bottomAnchor)
+            ])
+        }
+        statusItem.menu = menu
+    }
+
+    @objc func handleNetworkChange(_ notification: Notification) {
+        guard let userInfo = notification.userInfo,
+              let isConnected = userInfo["isConnected"] as? Bool else {
+            return
+        }
+        print("DEBUG: Received networkStatusChanged notification: isConnected = \(isConnected)")
+        if isConnected {
+            setupPinger()
+        } else {
+            stopPinger()
+        }
+    }
+    
+    @objc func openPreferences() {
+        if prefsWindow == nil {
+            prefsWindow = PreferencesWindowController()
+        }
+        prefsWindow?.showWindow(nil)
+        if let window = self.prefsWindow?.window {
+            NSApp.activate(ignoringOtherApps: true)
+            window.makeKeyAndOrderFront(nil)
+            window.makeFirstResponder(self.prefsWindow?.targetField)
+        }
+    }
+    
+    func timeoutResponse(with time: Double) {
+        pingGraphView.addPingResponse(time)
+        guard let currentPinger = pinger, let ip = currentPinger.destination.ip else { return }
+        if target != ip {
+            self.currentPingTime.title = String(format: "🔴 %@ [%@] (timeout)", target, ip)
+        } else {
+            self.currentPingTime.title = String(format: "🔴 %@ (timeout)", target)
+        }
+        statusItem.button?.toolTip = "timeout"
+    }
+
+    func updatePingResponse(with time: Double) {
+        pingGraphView.addPingResponse(time)
+        let curMs: Double = time * 1000
+        guard let currentPinger = pinger, let ip = currentPinger.destination.ip else { return }
+        if target != ip {
+            self.currentPingTime.title = String(format: "🟢 %@ [%@] • %.0fms", target, ip, curMs)
+        } else {
+            self.currentPingTime.title = String(format: "🟢 %@ • %.0fms", target, curMs)
+        }
+        if let avg = pingGraphView.averagePing {
+            let avgMs: Double = avg * 1000
+            statusItem.button?.toolTip = String(format: "%.0fms (avg: %.1f)", curMs, avgMs)
+        } else {
+            statusItem.button?.toolTip = k_AppName
+        }
+    }
+    
+    func stopPinger() {
+        if let currentPinger = self.pinger {
+            currentPinger.stopPinging()
+            self.pinger = nil
+        }
+        //self.statusItem.button?.title = "…"
+        self.currentPingTime.title = "🔴 \(target) (waiting for network)"
+        pingGraphView.pingerActive = false
+    }
+    
+    @objc func setupPinger(_ notification: Notification? = nil) {
+        target = UserDefaults.standard.object(forKey: "PingTarget") as? String ?? defaultPingTarget
+        let interval = UserDefaults.standard.object(forKey: "PingInterval") as? Double ?? defaultPingInterval
+        let timeout = UserDefaults.standard.object(forKey: "PingTimeout") as? Double ?? defaultPingTimeout
+        let pingConfiguration = PingConfiguration(interval: interval, with: timeout)
+        print("DEBUG: Ping configuration - target: \(target), interval: \(interval), timeout: \(timeout)")
+
+        if !monitor.isActive {
+            print("WARNING: Network not active, retrying in 5 seconds")
+            DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
+                self.setupPinger()
+            }
+            return
+        } else {
+            print("DEBUG: network is active")
+        }
+
+        createStatusItem()
+        stopPinger() // Stop existing pinger before starting a new one
+        
+        do {
+            self.pinger = try SwiftyPing(
+                host: target,
+                configuration: pingConfiguration,
+                queue: DispatchQueue.global()
+            )
+        } catch {
+            print("ERROR: Failed to create SwiftyPing instance for \(target): \(error)")
+            self.currentPingTime.title = "❌ Error: \(error)"
+            return
+        }
+            
+        self.pinger?.observer = { [weak self] response in
+            guard let self = self else { return }
+
+            DispatchQueue.main.async {
+                if let error = response.error {
+                    switch error {
+                    case .requestTimeout, .responseTimeout:
+                        print("⏳ Ping timeout")
+                        self.timeoutResponse(with: timeout)
+                    case .unknownHostError, .addressLookupError, .hostNotFound:
+                        print("⚠️ Host not found, or DNS lookup failure: \(error)")
+                        self.currentPingTime.title = "❌ DNS error (\(error))"
+                    default:
+                        print("⚠️ SwiftyPing error: \(error)")
+                        self.currentPingTime.title = "❌ Error: \(error)"
+                    }
+                } else {
+                    let duration = response.duration
+                    self.updatePingResponse(with: duration)
+                }
+            }
+        }
+            
+        do {
+            try self.pinger?.startPinging()
+            pingGraphView.pingerActive = true
+        } catch {
+            print("ERROR: Failed to start pinging: \(error)")
+            self.currentPingTime.title = "❌ \(target) (error 2)"
+        }
+
+    }
+
+    func applicationWillTerminate(_ aNotification: Notification) {
+        print("DEBUG: Shutting down")
+    }
+        
+    deinit {
+        NotificationCenter.default.removeObserver(self, name: .preferencesDidChange, object: nil)
+        NotificationCenter.default.removeObserver(self, name: .networkStatusChanged, object: nil)
+    }
+
+}
