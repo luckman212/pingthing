@@ -6,9 +6,11 @@ A lightweight menubar app that displays a scrolling graph in your menubar of ICM
 
 Inspired by [Pingr](https://getpingr.app/) which appears to have been abandoned in 2021.
 
-# Usage
-
 # Settings
+
+Most settings should be self-explanatory. Here is an image of the Settings dialog:
+
+<img src="./img/settings.png" width="128" />
 
 # Bugs? 🐛
 
