@@ -18,7 +18,9 @@ You can choose a ping interval between 0.1 and 60 seconds.
 
 <img src="./img/tooltip.png" width="536" />
 
+The graph will dim/turn gray if network connectivity is interrupted:
 
+<img src="./img/waiting.png" width="740" />
 
 # Bugs? 🐛
 
