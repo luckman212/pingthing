@@ -10,7 +10,7 @@ Inspired by [Pingr](https://getpingr.app/) which appears to have been abandoned 
 
 Most settings should be self-explanatory. Here is an image of the Settings dialog:
 
-<img src="./img/settings.png" width="128" />
+<img src="./img/settings.png" width="632" />
 
 # Bugs? 🐛
 
