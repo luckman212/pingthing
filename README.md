@@ -4,7 +4,7 @@
 
 A lightweight menubar app that displays a scrolling graph in your menubar of ICMP latency to a specified target.
 
-Inspired by [Pingr](https://getpingr.app/) which appears to have been abandoned in 2021.
+Inspired by [Pingr](https://getpingr.app/), which appears to have been abandoned in 2021.
 
 # Settings
 
@@ -19,6 +19,8 @@ You can choose a ping interval between 0.1 and 60 seconds.
 <img src="./img/tooltip.png" width="536" />
 
 The graph will dim/turn gray if network connectivity is interrupted:
+
+<img src="./img/gray.png" width="284" />
 
 <img src="./img/waiting.png" width="740" />
 
