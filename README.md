@@ -26,6 +26,10 @@ The graph will dim/turn gray if network connectivity is interrupted:
 
 <img src="./img/waiting.png" width="740" />
 
+# Requirements
+
+PingThing requires at least macOS 13. It is codesigned and notarized, so should run without too much fuss from Gatekeeper.
+
 # Bugs? 🐛
 
 There might be bugs! Also, I didn't write the ICMP code—I'm using the [SwiftyPing](https://github.com/samiyr/SwiftyPing) library. Please report [issues](https://github.com/luckman212/pingthing/issues) and I will do my best to address them.
