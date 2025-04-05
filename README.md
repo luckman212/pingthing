@@ -2,7 +2,7 @@
 
 # PingThing
 
-A lightweight menubar app that displays a scrolling graph in your menubar of ICMP latency to a specified target.
+A lightweight, native macOS menubar app that displays a scrolling graph of ICMP latency to a specified target. The app is written in Swift, and is compiled as a universal binary for ARM and x86_64.
 
 Inspired by [Pingr](https://getpingr.app/), which appears to have been abandoned in 2021.
 
