@@ -24,7 +24,5 @@
 	<string>1620</string>
 	<key>DTXcodeBuild</key>
 	<string>16C5032a</string>
-	<key>CFBundleShortVersionString</key>
-	<string>$(FULL_VERSION_STRING)</string>
 </dict>
 </plist>
