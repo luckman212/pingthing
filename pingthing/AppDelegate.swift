@@ -12,6 +12,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     
     var statusItem: NSStatusItem!
     var currentPingTime: NSMenuItem!
+    var retryWorkItem: DispatchWorkItem?
     var pingGraphView: PingResponseGraphView!
     var prefsWindow: PreferencesWindowController?
     var logWindow: LogWindowController?
@@ -182,12 +183,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             currentPinger.stopPinging()
             self.pinger = nil
         }
-        //self.statusItem.button?.title = "…"
         self.currentPingTime.title = "🔴 \(target) (waiting for network)"
         pingGraphView.pingerActive = false
     }
     
     @objc func setupPinger(_ notification: Notification? = nil) {
+        retryWorkItem?.cancel()
+        retryWorkItem = nil
+        stopPinger() // Stop existing pinger before starting a new one
+
         target = UserDefaults.standard.object(forKey: "PingTarget") as? String ?? defaultPingTarget
         let interval = UserDefaults.standard.object(forKey: "PingInterval") as? Double ?? defaultPingInterval
         let timeout = UserDefaults.standard.object(forKey: "PingTimeout") as? Double ?? defaultPingTimeout
@@ -203,7 +207,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         createStatusItem()
-        stopPinger() // Stop existing pinger before starting a new one
         
         do {
             self.pinger = try SwiftyPing(
@@ -255,9 +258,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
   
     private func schedulePingerSetupRetry(after delay: TimeInterval = 5.0) {
-        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-            self.setupPinger()
+        retryWorkItem?.cancel()
+        let workItem = DispatchWorkItem { [weak self] in
+            self?.setupPinger()
         }
+        retryWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: workItem)
     }
 
     func applicationWillTerminate(_ aNotification: Notification) {
