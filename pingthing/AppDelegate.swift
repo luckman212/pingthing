@@ -1,5 +1,5 @@
 //
-//  PingThing 1.0.0
+//  PingThing
 //  AppDelegate.swift
 //
 
@@ -14,6 +14,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var currentPingTime: NSMenuItem!
     var pingGraphView: PingResponseGraphView!
     var prefsWindow: PreferencesWindowController?
+    var logWindow: LogWindowController?
     var pinger: SwiftyPing?
     let monitor = PingMenuNetworkMonitor()
     let menu = NSMenu()
@@ -28,19 +29,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     func applicationDidFinishLaunching(_ notification: Notification) {
+        self.logWindow = LogWindowController()
         currentPingTime = NSMenuItem(title: "Initializing…", action: nil, keyEquivalent: "")
         menu.addItem(currentPingTime)
         menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: "Settings…", action: #selector(openPreferences), keyEquivalent: ","))
+        menu.addItem(NSMenuItem(title: "Show Log", action: #selector(showLogWindow), keyEquivalent: ""))
         menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: "Quit", action: #selector(NSApplication.terminate), keyEquivalent: "q"))
         
         /*
         DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-            print("Delayed block")
+            PTdebugPrint("Delayed block")
         }
         Timer.scheduledTimer(withTimeInterval: 1, repeats: false) { _ in
-            print("Timer fired")
+            PTdebugPrint("Timer fired")
         }
         */
         
@@ -61,16 +64,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // request notification permissions
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
             if let error = error {
-                print("Error requesting notification permission: \(error)")
+                PTdebugPrint("Error requesting notification permission: \(error)")
             } else {
-                print("Permission granted: \(granted)")
+                PTdebugPrint("Permission granted: \(granted)")
             }
         }
         
         // initialize state
         setupPinger()
     }
-    
+      
     func createStatusItem() {
         let historySize = UserDefaults.standard.object(forKey: "HistorySize") as? Int ?? defaultHistorySize
         let barWidth = UserDefaults.standard.object(forKey: "BarWidth") as? Int ?? defaultBarWidth
@@ -116,7 +119,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
               let isConnected = userInfo["isConnected"] as? Bool else {
             return
         }
-        print("DEBUG: Received networkStatusChanged notification: isConnected = \(isConnected)")
+        PTdebugPrint("DEBUG: Received networkStatusChanged notification: isConnected = \(isConnected)")
         if isConnected {
             setupPinger()
         } else {
@@ -133,6 +136,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             NSApp.activate(ignoringOtherApps: true)
             window.makeKeyAndOrderFront(nil)
             window.makeFirstResponder(self.prefsWindow?.targetField)
+        }
+    }
+  
+    @objc func showLogWindow() {
+        if logWindow == nil {
+          logWindow = LogWindowController()
+        }
+        if let window = logWindow?.window {
+            NSApp.activate(ignoringOtherApps: true)
+            window.makeKeyAndOrderFront(nil)
+            PTdebugPrint("Test debug message after log window opened")
         }
     }
     
@@ -179,16 +193,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let interval = UserDefaults.standard.object(forKey: "PingInterval") as? Double ?? defaultPingInterval
         let timeout = UserDefaults.standard.object(forKey: "PingTimeout") as? Double ?? defaultPingTimeout
         let pingConfiguration = PingConfiguration(interval: interval, with: timeout)
-        print("DEBUG: Ping configuration - target: \(target), interval: \(interval), timeout: \(timeout)")
+        PTdebugPrint("DEBUG: Ping configuration - target: \(target), interval: \(interval), timeout: \(timeout)")
 
         if !monitor.isActive {
-            print("WARNING: Network not active, retrying in 5 seconds")
-            DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
-                self.setupPinger()
-            }
+            PTdebugPrint("WARNING: Network not active, retrying in 5 seconds")
+            schedulePingerSetupRetry()
             return
         } else {
-            print("DEBUG: network is active")
+            PTdebugPrint("DEBUG: network is active")
         }
 
         createStatusItem()
@@ -201,8 +213,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 queue: DispatchQueue.global()
             )
         } catch {
-            print("ERROR: Failed to create SwiftyPing instance for \(target): \(error)")
+            PTdebugPrint("ERROR: Failed to create SwiftyPing instance for \(target): \(error)")
             self.currentPingTime.title = "❌ Error: \(error)"
+            schedulePingerSetupRetry()
             return
         }
             
@@ -212,16 +225,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             DispatchQueue.main.async {
                 if let error = response.error {
                     switch error {
-                    case .requestTimeout, .responseTimeout:
-                        print("⏳ Ping timeout")
-                        self.timeoutResponse(with: timeout)
-                    case .unknownHostError, .addressLookupError, .hostNotFound:
-                        print("⚠️ Host not found, or DNS lookup failure: \(error)")
-                        self.currentPingTime.title = "❌ DNS error (\(error))"
-                    default:
-                        print("⚠️ SwiftyPing error: \(error)")
-                        self.currentPingTime.title = "❌ Error: \(error)"
-                    }
+                        case .requestTimeout, .responseTimeout:
+                            PTdebugPrint("⏳ Ping timeout")
+                            self.timeoutResponse(with: timeout)
+                        case .unknownHostError, .addressLookupError, .hostNotFound:
+                            PTdebugPrint("⚠️ Host not found, or DNS lookup failure: \(error)")
+                            self.currentPingTime.title = "❌ DNS error (\(error))"
+                            self.schedulePingerSetupRetry()
+                        default:
+                            PTdebugPrint("⚠️ SwiftyPing error: \(error)")
+                            self.currentPingTime.title = "❌ Error: \(error)"
+                            self.schedulePingerSetupRetry()
+                      }
                 } else {
                     let duration = response.duration
                     self.updatePingResponse(with: duration)
@@ -233,14 +248,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             try self.pinger?.startPinging()
             pingGraphView.pingerActive = true
         } catch {
-            print("ERROR: Failed to start pinging: \(error)")
-            self.currentPingTime.title = "❌ \(target) (error 2)"
+            PTdebugPrint("ERROR: Failed to start pinging: \(error)")
+            self.currentPingTime.title = "❌ \(target) (\(error))"
+            //schedulePingerSetupRetry()
         }
 
     }
+  
+    private func schedulePingerSetupRetry(after delay: TimeInterval = 5.0) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+            self.setupPinger()
+        }
+    }
 
     func applicationWillTerminate(_ aNotification: Notification) {
-        print("DEBUG: Shutting down")
+        PTdebugPrint("DEBUG: Shutting down")
     }
         
     deinit {

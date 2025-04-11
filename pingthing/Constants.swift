@@ -5,6 +5,7 @@
 import AppKit
 
 let k_AppName: String = "PingThing"
+let k_logwindow_q: String = "\(Bundle.main.bundleIdentifier ?? "com.luckman212.pingthing").debugLogger"
 
 let defaultPingTarget = "8.8.8.8" // or "one.one.one.one"
 let defaultPingInterval: Double = 1.0

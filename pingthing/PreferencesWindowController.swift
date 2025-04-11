@@ -69,7 +69,7 @@ class PreferencesWindowController: NSWindowController {
             backing: .buffered,
             defer: false
         )
-        window.title = "PingThing Settings"
+        window.title = "\(k_AppName) Settings"
         super.init(window: window)
         window.windowController = self
         setupUI()
@@ -249,24 +249,11 @@ class PreferencesWindowController: NSWindowController {
 
         let flexibleSpace = NSView()
         flexibleSpace.translatesAutoresizingMaskIntoConstraints = false
-
-        let buttonRow = NSStackView()
-        buttonRow.orientation = .horizontal
-        buttonRow.alignment = .centerY
-        buttonRow.spacing = 0
-        buttonRow.translatesAutoresizingMaskIntoConstraints = false
+        flexibleSpace.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        flexibleSpace.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
 
         let cancelButton = NSButton(title: "Cancel", target: self, action: #selector(cancelClicked(_:)))
-        cancelButton.bezelStyle = .rounded
-        cancelButton.controlSize = .regular
-        cancelButton.font = NSFont.systemFont(ofSize: 14)
-        cancelButton.translatesAutoresizingMaskIntoConstraints = false
-        
         let saveButton = NSButton(title: "Save", target: self, action: #selector(saveClicked(_:)))
-        saveButton.bezelStyle = .rounded
-        saveButton.controlSize = .regular
-        saveButton.font = NSFont.systemFont(ofSize: 14)
-        saveButton.translatesAutoresizingMaskIntoConstraints = false
         
         NSLayoutConstraint.activate([
             cancelButton.widthAnchor.constraint(equalToConstant: 90),
@@ -278,18 +265,7 @@ class PreferencesWindowController: NSWindowController {
         let buttonStack = NSStackView(views: [cancelButton, saveButton])
         buttonStack.orientation = .horizontal
         buttonStack.alignment = .centerY
-        buttonStack.spacing = 10
-        buttonStack.translatesAutoresizingMaskIntoConstraints = false
-        
-        let buttonContainer = NSView()
-        buttonContainer.translatesAutoresizingMaskIntoConstraints = false
-        buttonContainer.addSubview(buttonStack)
-        NSLayoutConstraint.activate([
-            buttonStack.centerXAnchor.constraint(equalTo: buttonContainer.centerXAnchor),
-            buttonStack.topAnchor.constraint(equalTo: buttonContainer.topAnchor),
-            buttonStack.bottomAnchor.constraint(equalTo: buttonContainer.bottomAnchor)
-        ])
-        
+        buttonStack.spacing = 10        
         bottomRow.addArrangedSubview(launchAtLoginStack)
         bottomRow.addArrangedSubview(flexibleSpace)
         bottomRow.addArrangedSubview(buttonStack)
