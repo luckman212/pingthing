@@ -36,7 +36,6 @@ class LogWindowController: NSWindowController {
     let textView: NSTextView
 
     init() {
-        print("LogWindowController init")
         let window = NSWindow(contentRect: NSRect(x: 100, y: 500, width: 800, height: 400),
                               styleMask: [.titled, .closable, .resizable],
                               backing: .buffered,
@@ -72,14 +71,12 @@ class LogWindowController: NSWindowController {
 
     override func windowDidLoad() {
       super.windowDidLoad()
-      print("Log window loaded")
       textView.backgroundColor = .textBackgroundColor
       textView.typingAttributes = [.foregroundColor: NSColor.labelColor]
       textView.string = DebugLogger.shared.fullLog()
     }
 
     @objc func appendDebugMessage(_ notification: Notification) {
-        print("in appendDebugMessage")
         guard let message = notification.object as? String else { return }
         DispatchQueue.main.async {
             let dynamicAttributes: [NSAttributedString.Key: Any] = [

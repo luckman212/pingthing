@@ -13,7 +13,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var statusItem: NSStatusItem!
     var currentPingTime: NSMenuItem!
     var retryWorkItem: DispatchWorkItem?
-    var pingGraphView: PingResponseGraphView!
+    var pingGraphView: PingResponseGraphView?
     var prefsWindow: PreferencesWindowController?
     var logWindow: LogWindowController?
     var pinger: SwiftyPing?
@@ -95,13 +95,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             container.layer?.cornerRadius = k_graphCornerRadius
             container.layer?.masksToBounds = false
 
-            pingGraphView = PingResponseGraphView(historySize: historySize, barWidth: barWidth)
-            pingGraphView.frame = container.bounds
-            pingGraphView.autoresizingMask = [.width, .height]
-            pingGraphView.wantsLayer = true
-            pingGraphView.layer?.cornerRadius = k_graphCornerRadius
-            pingGraphView.layer?.masksToBounds = true
-            container.addSubview(pingGraphView)
+            let pgv = PingResponseGraphView(historySize: historySize, barWidth: barWidth)
+            pgv.frame = container.bounds
+            pgv.autoresizingMask = [.width, .height]
+            pgv.wantsLayer = true
+            pgv.layer?.cornerRadius = k_graphCornerRadius
+            pgv.layer?.masksToBounds = true
+            container.addSubview(pgv)
+            pingGraphView = pgv
                         
             button.addSubview(container)
             container.translatesAutoresizingMaskIntoConstraints = false
@@ -151,7 +152,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     func timeoutResponse(with time: Double) {
-        pingGraphView.addPingResponse(time)
+        pingGraphView?.addPingResponse(time)
         guard let currentPinger = pinger, let ip = currentPinger.destination.ip else { return }
         if target != ip {
             self.currentPingTime.title = String(format: "🔴 %@ [%@] (timeout)", target, ip)
@@ -162,7 +163,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func updatePingResponse(with time: Double) {
-        pingGraphView.addPingResponse(time)
+        pingGraphView?.addPingResponse(time)
         let curMs: Double = time * 1000
         guard let currentPinger = pinger, let ip = currentPinger.destination.ip else { return }
         if target != ip {
@@ -170,7 +171,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         } else {
             self.currentPingTime.title = String(format: "🟢 %@ • %.0fms", target, curMs)
         }
-        if let avg = pingGraphView.averagePing {
+        if let avg = pingGraphView?.averagePing {
             let avgMs: Double = avg * 1000
             statusItem.button?.toolTip = String(format: "%.0fms (avg: %.1f)", curMs, avgMs)
         } else {
@@ -184,7 +185,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             self.pinger = nil
         }
         self.currentPingTime.title = "🔴 \(target) (waiting for network)"
-        pingGraphView.pingerActive = false
+        pingGraphView?.pingerActive = false
     }
     
     @objc func setupPinger(_ notification: Notification? = nil) {
@@ -248,7 +249,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             
         do {
             try self.pinger?.startPinging()
-            pingGraphView.pingerActive = true
+            pingGraphView?.pingerActive = true
         } catch {
             PTdebugPrint("ERROR: Failed to start pinging: \(error)")
             self.currentPingTime.title = "❌ \(target) (\(error))"
