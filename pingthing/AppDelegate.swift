@@ -66,7 +66,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             if let error = error {
                 PTdebugPrint("Error requesting notification permission: \(error)")
             } else {
-                PTdebugPrint("Permission granted: \(granted)")
+                PTdebugPrint("Notification permission granted: \(granted)")
             }
         }
         
@@ -119,7 +119,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
               let isConnected = userInfo["isConnected"] as? Bool else {
             return
         }
-        PTdebugPrint("DEBUG: Received networkStatusChanged notification: isConnected = \(isConnected)")
+        PTdebugPrint("Received networkStatusChanged notification: isConnected = \(isConnected)")
         if isConnected {
             setupPinger()
         } else {
@@ -146,7 +146,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if let window = logWindow?.window {
             NSApp.activate(ignoringOtherApps: true)
             window.makeKeyAndOrderFront(nil)
-            PTdebugPrint("Test debug message after log window opened")
         }
     }
     
@@ -193,14 +192,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let interval = UserDefaults.standard.object(forKey: "PingInterval") as? Double ?? defaultPingInterval
         let timeout = UserDefaults.standard.object(forKey: "PingTimeout") as? Double ?? defaultPingTimeout
         let pingConfiguration = PingConfiguration(interval: interval, with: timeout)
-        PTdebugPrint("DEBUG: Ping configuration - target: \(target), interval: \(interval), timeout: \(timeout)")
+        PTdebugPrint("Ping configuration - target: \(target), interval: \(interval), timeout: \(timeout)")
 
         if !monitor.isActive {
             PTdebugPrint("WARNING: Network not active, retrying in 5 seconds")
             schedulePingerSetupRetry()
             return
         } else {
-            PTdebugPrint("DEBUG: network is active")
+            PTdebugPrint("Network is active")
         }
 
         createStatusItem()
@@ -262,7 +261,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ aNotification: Notification) {
-        PTdebugPrint("DEBUG: Shutting down")
+        PTdebugPrint("Shutting down")
     }
         
     deinit {
