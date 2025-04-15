@@ -97,7 +97,7 @@ func PTdebugPrint(_ message: String) {
     let timestamp = Date()
     let formatter = DateFormatter()
     formatter.dateFormat = "yyyy-MM-dd HH:mm:ss.SSS"
-    formatter.timeZone = TimeZone.current //local time
+    formatter.timeZone = TimeZone.current // use local time
     let formattedTimestamp = formatter.string(from: timestamp)
     let fullMessage = "\(formattedTimestamp): \(message)"
     DebugLogger.shared.log(fullMessage)
